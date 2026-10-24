@@ -1,0 +1,71 @@
+// ==============================================================================
+// Example 06: Schema DDL, Modern Types, Indexes and Alter Table Migrations
+// examples/06_schema_indexes_migrations.aura
+// ==============================================================================
+
+import { PostgresOrm, SqliteOrm } from "../src/orm";
+import {
+  IntegerColumn,
+  StringColumn,
+  BoolColumn,
+  TimestampColumn,
+  JsonColumn,
+  UuidColumn,
+  FloatColumn,
+  BlobColumn,
+  AddColumnSql,
+  DropColumnSql,
+  RenameColumnSql
+} from "../src/schema/schema";
+
+export fn main(): Unit => {
+  println("================================================================================");
+  println("  📖 EXAMPLE 06: SCHEMA DDL, INDEXES & ALTER TABLE MIGRATIONS");
+  println("================================================================================");
+
+  let pg = PostgresOrm();
+  let sqlite = SqliteOrm();
+
+  // 1. Table with modern types (UUID, JSONB, FLOAT, BYTEA) & Foreign Keys
+  println("\n--- 1. Table Schema with Modern Types (PostgreSQL) ---");
+  let ordersTable = pg.DefineTable("orders")
+    .AddColumn(UuidColumn("id").PrimaryKey())
+    .AddColumn(IntegerColumn("user_id").References("users", "id").OnDelete("CASCADE"))
+    .AddColumn(FloatColumn("total_amount"))
+    .AddColumn(JsonColumn("order_metadata"))
+    .AddColumn(BlobColumn("receipt_pdf"))
+    .AddColumn(BoolColumn("is_paid").Default("false"))
+    .AddColumn(TimestampColumn("created_at"))
+    .AddIndex("idx_orders_user_id", ["user_id"], false)
+    .AddIndex("idx_orders_created", ["created_at"], false);
+
+  let ddl = ordersTable.ToCreateTableSql(pg.dialect);
+  println(`CREATE TABLE DDL:\n  ${ddl}`);
+
+  // 2. Indexes DDL
+  println("\n--- 2. Indexes DDL Generation ---");
+  let indexStatements = ordersTable.ToCreateIndexSql(pg.dialect);
+  for idxSql in indexStatements {
+    println(`  ${idxSql}`);
+  }
+
+  // 3. SQLite DDL with AUTOINCREMENT
+  println("\n--- 3. SQLite Table with AUTOINCREMENT ---");
+  let notesTable = sqlite.DefineTable("notes")
+    .AddColumn(IntegerColumn("id").PrimaryKey())
+    .AddColumn(StringColumn("title", 200))
+    .AddColumn(JsonColumn("tags"));
+
+  println(`SQLITE DDL:\n  ${notesTable.ToCreateTableSql(sqlite.dialect)}`);
+
+  // 4. Alter Table Migrations
+  println("\n--- 4. Incremental Migrations (ALTER TABLE) ---");
+  let addCol = AddColumnSql("users", StringColumn("phone_number", 32).Nullable(), pg.dialect);
+  let dropCol = DropColumnSql("users", "deprecated_field", pg.dialect);
+  let renameCol = RenameColumnSql("users", "name", "full_name", pg.dialect);
+
+  println(`ADD COLUMN:    ${addCol}`);
+  println(`DROP COLUMN:   ${dropCol}`);
+  println(`RENAME COLUMN: ${renameCol}`);
+  println("================================================================================");
+}

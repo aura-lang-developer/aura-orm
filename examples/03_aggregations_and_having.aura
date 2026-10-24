@@ -1,0 +1,43 @@
+// ==============================================================================
+// Example 03: Aggregations, GROUP BY and HAVING Clause
+// examples/03_aggregations_and_having.aura
+// ==============================================================================
+
+import { PostgresOrm } from "../src/orm";
+
+export fn main(): Unit => {
+  println("================================================================================");
+  println("  📖 EXAMPLE 03: AGGREGATIONS (COUNT, SUM, AVG, MIN, MAX) & HAVING");
+  println("================================================================================");
+
+  let pg = PostgresOrm();
+
+  // 1. Group by department with COUNT and AVG
+  println("\n--- 1. Department Summary with COUNT & AVG ---");
+  let deptSummary = pg.SelectFrom("employees")
+    .Select("department_id")
+    .Count("id", "total_employees")
+    .Avg("salary", "avg_salary")
+    .GroupBy("department_id")
+    .Having("COUNT(id) >= 5")
+    .OrderBy("avg_salary", "DESC")
+    .ToSql();
+
+  println(`SQL: ${deptSummary.sql}`);
+
+  // 2. Financial Metrics with SUM, MIN, MAX
+  println("\n--- 2. Sales Summary with SUM, MIN, and MAX ---");
+  let salesMetrics = pg.SelectFrom("invoices")
+    .Select("store_id")
+    .Sum("amount", "total_revenue")
+    .Min("amount", "min_invoice")
+    .Max("amount", "max_invoice")
+    .Where("status", "=", "paid")
+    .GroupBy("store_id")
+    .Having("SUM(amount) > 100000")
+    .ToSql();
+
+  println(`SQL:    ${salesMetrics.sql}`);
+  println(`PARAMS: [${salesMetrics.params[0]}]`);
+  println("================================================================================");
+}

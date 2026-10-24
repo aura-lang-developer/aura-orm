@@ -1,0 +1,64 @@
+// ==============================================================================
+// Example 04: INSERT Operations, RETURNING and Batch / Bulk Insert
+// examples/04_insert_and_batch.aura
+// ==============================================================================
+
+import { PostgresOrm, MysqlOrm } from "../src/orm";
+
+export fn main(): Unit => {
+  println("================================================================================");
+  println("  📖 EXAMPLE 04: INSERT, RETURNING & BATCH BULK INSERTS");
+  println("================================================================================");
+
+  let pg = PostgresOrm();
+  let mysql = MysqlOrm();
+
+  // 1. Single INSERT with RETURNING (PostgreSQL)
+  println("\n--- 1. Single INSERT with RETURNING ---");
+  let singleInsert = pg.InsertInto("users")
+    .Set("name", "John Doe")
+    .Set("email", "john@example.com")
+    .Set("role", "member")
+    .Returning("id")
+    .Returning("created_at")
+    .ToSql();
+
+  println(`SQL:    ${singleInsert.sql}`);
+  println(`PARAMS: [${singleInsert.params[0]}, ${singleInsert.params[1]}, ${singleInsert.params[2]}]`);
+
+  // 2. Batch / Bulk Insert in PostgreSQL ($1..$N)
+  println("\n--- 2. Batch Bulk Insert in PostgreSQL ---");
+  let pgBatch = pg.InsertInto("sensor_logs")
+    .BatchInsert(
+      ["device_id", "temperature", "humidity"],
+      [
+        ["DEV-01", "22.5", "55"],
+        ["DEV-02", "24.1", "50"],
+        ["DEV-03", "21.9", "60"]
+      ]
+    )
+    .ToSql();
+
+  println(`SQL:         ${pgBatch.sql}`);
+  println(`PARAM COUNT: ${len(pgBatch.params)}`);
+
+  // 3. Batch Bulk Insert in MySQL (?, ?, ?)
+  println("\n--- 3. Batch Bulk Insert in MySQL ---");
+  let myBatch = mysql.InsertInto("tags")
+    .BatchInsert(["slug", "name"], [["aura", "Aura Lang"], ["orm", "Object Relational"]])
+    .ToSql();
+
+  println(`SQL: ${myBatch.sql}`);
+
+  // 4. INSERT with Raw SQL expressions & ON CONFLICT (UPSERT)
+  println("\n--- 4. INSERT with SetRaw and ON CONFLICT DO UPDATE ---");
+  let upsert = pg.InsertInto("daily_visits")
+    .Set("page_url", "/blog/introducing-aura")
+    .SetRaw("visit_count", "1")
+    .SetRaw("last_visit", "CURRENT_TIMESTAMP")
+    .OnConflictDoUpdate("page_url", ["visit_count = daily_visits.visit_count + 1", "last_visit = CURRENT_TIMESTAMP"])
+    .ToSql();
+
+  println(`SQL: ${upsert.sql}`);
+  println("================================================================================");
+}

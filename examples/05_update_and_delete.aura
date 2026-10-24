@@ -1,0 +1,58 @@
+// ==============================================================================
+// Example 05: UPDATE, DELETE with SetRaw, RETURNING and LIMIT
+// examples/05_update_and_delete.aura
+// ==============================================================================
+
+import { PostgresOrm, SqliteOrm } from "../src/orm";
+
+export fn main(): Unit => {
+  println("================================================================================");
+  println("  📖 EXAMPLE 05: UPDATE & DELETE (SetRaw, RETURNING & LIMIT)");
+  println("================================================================================");
+
+  let pg = PostgresOrm();
+  let sqlite = SqliteOrm();
+
+  // 1. UPDATE with parameterized Set and SetRaw expression + RETURNING
+  println("\n--- 1. UPDATE with SetRaw expression and RETURNING in PostgreSQL ---");
+  let pgUpdate = pg.UpdateTable("products")
+    .SetRaw("stock", "stock - 1")
+    .Set("updated_at", "2026-10-23")
+    .Where("id", "=", "99")
+    .Where("stock", ">", "0")
+    .Returning("stock")
+    .ToSql();
+
+  println(`SQL:    ${pgUpdate.sql}`);
+  println(`PARAMS: [${pgUpdate.params[0]}, ${pgUpdate.params[1]}, ${pgUpdate.params[2]}]`);
+
+  // 2. DELETE with RETURNING in PostgreSQL
+  println("\n--- 2. DELETE with RETURNING ---");
+  let pgDelete = pg.DeleteFrom("sessions")
+    .Where("expired", "=", "true")
+    .Returning("user_id")
+    .ToSql();
+
+  println(`SQL:    ${pgDelete.sql}`);
+  println(`PARAMS: [${pgDelete.params[0]}]`);
+
+  // 3. UPDATE with LIMIT in SQLite
+  println("\n--- 3. UPDATE with LIMIT in SQLite ---");
+  let sqliteUpdate = sqlite.UpdateTable("tasks")
+    .Set("status", "processing")
+    .Where("status", "=", "pending")
+    .Limit(5)
+    .ToSql();
+
+  println(`SQL: ${sqliteUpdate.sql}`);
+
+  // 4. DELETE with LIMIT in SQLite
+  println("\n--- 4. DELETE with LIMIT in SQLite ---");
+  let sqliteDelete = sqlite.DeleteFrom("temp_files")
+    .Where("cleaned", "=", "true")
+    .Limit(100)
+    .ToSql();
+
+  println(`SQL: ${sqliteDelete.sql}`);
+  println("================================================================================");
+}

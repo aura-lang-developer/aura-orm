@@ -1,0 +1,58 @@
+// ==============================================================================
+// Example 02: Advanced WHERE Clauses (IN, BETWEEN, LIKE, ILIKE, OR)
+// examples/02_advanced_filters.aura
+// ==============================================================================
+
+import { PostgresOrm, MysqlOrm } from "../src/orm";
+
+export fn main(): Unit => {
+  println("================================================================================");
+  println("  📖 EXAMPLE 02: ADVANCED WHERE CLAUSES & PATTERNS");
+  println("================================================================================");
+
+  let pg = PostgresOrm();
+  let mysql = MysqlOrm();
+
+  // 1. WhereIn & WhereBetween
+  println("\n--- 1. WhereIn and WhereBetween in PostgreSQL ---");
+  let qInBetween = pg.SelectFrom("employees")
+    .Select("name")
+    .Select("salary")
+    .Select("department")
+    .WhereIn("role", ["developer", "architect", "lead"])
+    .WhereBetween("salary", "60000", "120000")
+    .ToSql();
+
+  println(`SQL:    ${qInBetween.sql}`);
+  let mut pStr1 = "";
+  for p in qInBetween.params {
+    pStr1 = if len(pStr1) == 0 { p } else { `${pStr1}, ${p}` };
+  }
+  println(`PARAMS: [${pStr1}]`);
+
+  // 2. Case-insensitive ILIKE vs standard LIKE with OR conditions
+  println("\n--- 2. WhereILike and OrWhere combining criteria ---");
+  let qSearch = pg.SelectFrom("articles")
+    .WhereILike("title", "%aura%")
+    .OrWhere("category", "=", "compilers")
+    .ToSql();
+
+  println(`SQL (Postgres ILIKE): ${qSearch.sql}`);
+
+  let qMysqlSearch = mysql.SelectFrom("articles")
+    .WhereILike("title", "%aura%")
+    .OrWhere("category", "=", "compilers")
+    .ToSql();
+
+  println(`SQL (MySQL fallback): ${qMysqlSearch.sql}`);
+
+  // 3. WhereNotIn and WhereNotNull
+  println("\n--- 3. WhereNotIn and WhereNotNull ---");
+  let qNot = pg.SelectFrom("accounts")
+    .WhereNotIn("tier", ["banned", "suspended"])
+    .WhereNotNull("verified_at")
+    .ToSql();
+
+  println(`SQL:    ${qNot.sql}`);
+  println("================================================================================");
+}

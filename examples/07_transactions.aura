@@ -1,0 +1,34 @@
+// ==============================================================================
+// Example 07: SQL Transaction Management (BEGIN, COMMIT, ROLLBACK, SAVEPOINT)
+// examples/07_transactions.aura
+// ==============================================================================
+
+import { PostgresOrm, MysqlOrm } from "../src/orm";
+
+export fn main(): Unit => {
+  println("================================================================================");
+  println("  📖 EXAMPLE 07: TRANSACTIONS & SAVEPOINTS");
+  println("================================================================================");
+
+  let pg = PostgresOrm();
+  let mysql = MysqlOrm();
+
+  // 1. PostgreSQL Transaction Workflow
+  println("\n--- 1. PostgreSQL Transaction Script ---");
+  let pgTx = pg.Transaction();
+
+  println(`1. ${pgTx.Begin()}`);
+  println(`   -- Execute payment charge query...`);
+  println(`2. ${pgTx.Savepoint("before_shipping")}`);
+  println(`   -- Try creating shipping label... (simulating failure)`);
+  println(`3. ${pgTx.RollbackToSavepoint("before_shipping")}`);
+  println(`   -- Fallback shipping method...`);
+  println(`4. ${pgTx.Commit()}`);
+
+  // 2. MySQL Transaction Workflow
+  println("\n--- 2. MySQL Transaction Script ---");
+  let myTx = mysql.Transaction();
+  println(`1. ${myTx.Begin()}`);
+  println(`2. ${myTx.Rollback()}`);
+  println("================================================================================");
+}

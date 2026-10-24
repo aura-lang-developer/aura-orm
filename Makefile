@@ -2,9 +2,9 @@
 # Aura ORM - Makefile
 # ==============================================================================
 
-.PHONY: all test test-builder test-schema check fmt clean help
+.PHONY: all test test-builder test-schema examples check fmt clean help
 
-all: check test
+all: check test examples
 
 # Run all test suites
 test: test-builder test-schema
@@ -15,15 +15,22 @@ test-builder:
 test-schema:
 	aurac run tests/schema_test.aura
 
+examples:
+	@echo "Running all example scripts..."
+	@for f in examples/*.aura; do aurac run "$$f"; done
+	@echo "✓ All examples executed successfully."
+
 # Type-check all modules
 check:
 	@echo "Checking Aura syntax and types..."
 	aurac check src/dialect/dialect.aura
 	aurac check src/builder/query.aura
 	aurac check src/schema/schema.aura
+	aurac check src/tx/tx.aura
 	aurac check src/orm.aura
 	aurac check tests/builder_test.aura
 	aurac check tests/schema_test.aura
+	@for f in examples/*.aura; do aurac check "$$f"; done
 	@echo "✓ All files passed type checking."
 
 # Code formatting
