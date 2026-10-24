@@ -1,0 +1,105 @@
+// ==============================================================================
+// Example 08: Relational Table Joins (INNER JOIN, LEFT JOIN, RIGHT JOIN, FULL JOIN)
+// examples/08_joins.aura
+// ==============================================================================
+
+import { PostgresOrm, MysqlOrm } from "../src/orm";
+
+export fn main(): Unit => {
+  println("================================================================================");
+  println("  📖 EXAMPLE 08: RELATIONAL TABLE JOINS (INNER, LEFT, RIGHT, FULL)");
+  println("================================================================================");
+
+  let pg = PostgresOrm();
+  let mysql = MysqlOrm();
+
+  // ----------------------------------------------------------------------------
+  // 1. INNER JOIN: Solo registros con coincidencias en ambas tablas
+  // ----------------------------------------------------------------------------
+  println("\n--- 1. INNER JOIN (Usuarios con sus perfiles confirmados) ---");
+  let innerQuery = pg.SelectFrom("users")
+    .Select("users.id")
+    .Select("users.email")
+    .Select("profiles.bio")
+    .Select("profiles.avatar_url")
+    .InnerJoin("profiles", "users.id = profiles.user_id")
+    .Where("users.is_active", "=", "true")
+    .ToSql();
+
+  println(`SQL:    ${innerQuery.sql}`);
+  println(`PARAMS: [${innerQuery.params[0]}]`);
+
+  // ----------------------------------------------------------------------------
+  // 2. LEFT JOIN: Todos los usuarios, tengan o no pedidos realizados
+  // ----------------------------------------------------------------------------
+  println("\n--- 2. LEFT JOIN (Todos los usuarios con o sin pedidos) ---");
+  let leftQuery = pg.SelectFrom("users")
+    .Select("users.id")
+    .Select("users.name")
+    .Select("orders.id AS order_id")
+    .Select("orders.total_amount")
+    .LeftJoin("orders", "users.id = orders.user_id")
+    .OrderBy("users.id", "ASC")
+    .ToSql();
+
+  println(`SQL: ${leftQuery.sql}`);
+
+  // Encontrar usuarios sin ningún pedido (LEFT JOIN + WHERE IS NULL)
+  println("\n--- 2b. LEFT JOIN con WHERE IS NULL (Usuarios sin ningún pedido) ---");
+  let usersWithoutOrders = pg.SelectFrom("users")
+    .Select("users.id")
+    .Select("users.email")
+    .LeftJoin("orders", "users.id = orders.user_id")
+    .WhereNull("orders.id")
+    .ToSql();
+
+  println(`SQL: ${usersWithoutOrders.sql}`);
+
+  // ----------------------------------------------------------------------------
+  // 3. RIGHT JOIN: Todos los departamentos, tengan o no empleados asignados
+  // ----------------------------------------------------------------------------
+  println("\n--- 3. RIGHT JOIN (Departamentos completos y empleados asociados) ---");
+  let rightQuery = mysql.SelectFrom("employees")
+    .Select("employees.name AS employee_name")
+    .Select("departments.name AS department_name")
+    .Select("departments.location")
+    .RightJoin("departments", "employees.department_id = departments.id")
+    .ToSql();
+
+  println(`SQL: ${rightQuery.sql}`);
+
+  // ----------------------------------------------------------------------------
+  // 4. Múltiples JOINs encadenados (INNER JOIN + LEFT JOIN)
+  // ----------------------------------------------------------------------------
+  println("\n--- 4. Múltiples JOINs encadenados ---");
+  let multiJoinQuery = pg.SelectFrom("orders")
+    .Select("orders.id")
+    .Select("customers.name AS customer_name")
+    .Select("payments.payment_method")
+    .Select("payments.status AS payment_status")
+    .Select("coupons.code AS coupon_code")
+    .InnerJoin("customers", "orders.customer_id = customers.id")
+    .InnerJoin("payments", "orders.id = payments.order_id")
+    .LeftJoin("coupons", "orders.coupon_id = coupons.id")
+    .Where("orders.status", "=", "completed")
+    .OrderBy("orders.created_at", "DESC")
+    .Limit(20)
+    .ToSql();
+
+  println(`SQL:    ${multiJoinQuery.sql}`);
+  println(`PARAMS: [${multiJoinQuery.params[0]}]`);
+
+  // ----------------------------------------------------------------------------
+  // 5. FULL OUTER JOIN (PostgreSQL)
+  // ----------------------------------------------------------------------------
+  println("\n--- 5. FULL OUTER JOIN (Coincidencias completas de ambos lados) ---");
+  let fullJoinQuery = pg.SelectFrom("local_inventory")
+    .Select("local_inventory.sku")
+    .Select("local_inventory.quantity AS local_qty")
+    .Select("remote_inventory.quantity AS remote_qty")
+    .FullJoin("remote_inventory", "local_inventory.sku = remote_inventory.sku")
+    .ToSql();
+
+  println(`SQL: ${fullJoinQuery.sql}`);
+  println("================================================================================");
+}

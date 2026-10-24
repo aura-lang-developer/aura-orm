@@ -399,6 +399,22 @@ export fn (b: SelectBuilder) Join(joinType: String, table: String, onCondition: 
   }
 };
 
+export fn (b: SelectBuilder) InnerJoin(table: String, onCondition: String): SelectBuilder => {
+  b.Join("INNER", table, onCondition)
+};
+
+export fn (b: SelectBuilder) LeftJoin(table: String, onCondition: String): SelectBuilder => {
+  b.Join("LEFT", table, onCondition)
+};
+
+export fn (b: SelectBuilder) RightJoin(table: String, onCondition: String): SelectBuilder => {
+  b.Join("RIGHT", table, onCondition)
+};
+
+export fn (b: SelectBuilder) FullJoin(table: String, onCondition: String): SelectBuilder => {
+  b.Join("FULL", table, onCondition)
+};
+
 export fn (b: SelectBuilder) GroupBy(field: String): SelectBuilder => {
   let mut newGroups = b.groupBys;
   newGroups.push(field);

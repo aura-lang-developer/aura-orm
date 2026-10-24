@@ -22,6 +22,7 @@ aurac run examples/04_insert_and_batch.aura
 aurac run examples/05_update_and_delete.aura
 aurac run examples/06_schema_indexes_migrations.aura
 aurac run examples/07_transactions.aura
+aurac run examples/08_joins.aura
 ```
 
 ---
@@ -102,3 +103,14 @@ Demuestra la generación de comandos transaccionales consistentes y conscientes 
 - **Inicio de transacción**: `.Begin()` (`START TRANSACTION;` en MySQL, `BEGIN;` en PostgreSQL y SQLite).
 - **Confirmación y reversión**: `.Commit()` y `.Rollback()`.
 - **Puntos de guardado (Savepoints)**: `.Savepoint(name)` y reversión parcial con `.RollbackToSavepoint(name)`.
+
+---
+
+### 8. [`08_joins.aura`](file:///Users/mavro/Projects/AuraProjects/aura-orm/examples/08_joins.aura) — Uniones Relacionales (`INNER JOIN`, `LEFT JOIN`, `RIGHT JOIN`, `FULL JOIN`)
+Demuestra el enlace de tablas mediante relaciones foráneas y tipos de unión:
+- **`InnerJoin(table, onCondition)`**: Registros que coinciden obligatoriamente en ambas tablas.
+- **`LeftJoin(table, onCondition)`**: Registros completos de la tabla primaria (izquierda), con o sin coincidencias en la secundaria.
+- **Detección de huérfanos / ausencias**: `LeftJoin` combinado con `WhereNull("orders.id")`.
+- **`RightJoin(table, onCondition)`**: Conservación de registros completos de la tabla secundaria (derecha).
+- **Múltiples JOINs encadenados**: Composición compleja con múltiples `InnerJoin` y `LeftJoin` en la misma consulta.
+- **`FullJoin(table, onCondition)`**: Unión completa bidireccional (`FULL OUTER JOIN`).
