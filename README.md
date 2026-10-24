@@ -91,36 +91,87 @@ println(insert.sql);
 // UPDATE
 let update = orm.UpdateTable("users")
   .Set("name", "Alice Smith")
-  .Set("status", "verified")
+  .SetRaw("views", "views + 1")
   .Where("id", "=", "42")
+  .Returning("views")
   .ToSql();
 
 // DELETE
 let delete = orm.DeleteFrom("sessions")
   .Where("expired", "=", "true")
+  .Returning("id")
   .ToSql();
 ```
 
-### 5. Definición de Esquema y Migraciones DDL
+### 5. Inserciones por Lote (Batch Insert)
+
+```aura
+let batchInsert = orm.InsertInto("metrics")
+  .BatchInsert(["key", "val"], [["cpu", "80"], ["mem", "65"]])
+  .ToSql();
+// INSERT INTO metrics (key, val) VALUES ($1, $2), ($3, $4);
+```
+
+### 6. Filtros Avanzados, Agregaciones y Cláusula HAVING
+
+```aura
+let report = orm.SelectFrom("employees")
+  .Select("department")
+  .Count("id", "total_emp")
+  .Sum("salary", "total_payroll")
+  .WhereIn("role", ["developer", "designer"])
+  .WhereBetween("salary", "40000", "90000")
+  .WhereILike("name", "john%")
+  .OrWhere("status", "=", "exempt")
+  .GroupBy("department")
+  .Having("COUNT(id) > 2")
+  .ToSql();
+```
+
+### 7. Definición de Esquemas, Índices y Migraciones DDL
 
 ```aura
 import {
   IntegerColumn,
   StringColumn,
   BoolColumn,
-  TimestampColumn
+  TimestampColumn,
+  JsonColumn,
+  UuidColumn,
+  FloatColumn,
+  BlobColumn,
+  AddColumnSql,
+  DropColumnSql,
+  RenameColumnSql
 } from "./src/schema/schema";
 
 let usersTable = orm.DefineTable("users")
-  .AddColumn(IntegerColumn("id").PrimaryKey())
+  .AddColumn(UuidColumn("id").PrimaryKey())
   .AddColumn(StringColumn("name", 100))
   .AddColumn(StringColumn("email", 150).Unique())
+  .AddColumn(JsonColumn("preferences"))
+  .AddColumn(FloatColumn("score"))
+  .AddColumn(BlobColumn("avatar"))
   .AddColumn(BoolColumn("is_active").Default("true"))
-  .AddColumn(TimestampColumn("created_at"));
+  .AddColumn(TimestampColumn("created_at"))
+  .AddIndex("idx_users_email", ["email"], true);
 
-// Generar DDL según el dialecto configurado:
+// Generar DDL de creación de tabla e índices:
 let ddlSql = usersTable.ToCreateTableSql(orm.dialect);
-// CREATE TABLE IF NOT EXISTS "users" ("id" SERIAL PRIMARY KEY, "name" VARCHAR(100) NOT NULL, ...);
+let indexesSql = usersTable.ToCreateIndexSql(orm.dialect);
+
+// Alteraciones de columnas (ADD / DROP / RENAME):
+let alterSql = AddColumnSql("users", StringColumn("phone", 30).Nullable(), orm.dialect);
+```
+
+### 8. Gestor de Transacciones SQL
+
+```aura
+let tx = orm.Transaction();
+let beginSql = tx.Begin();              // "BEGIN;" o "START TRANSACTION;"
+let spSql = tx.Savepoint("sp1");        // "SAVEPOINT sp1;"
+let rbSp = tx.RollbackToSavepoint("sp1");// "ROLLBACK TO SAVEPOINT sp1;"
+let commitSql = tx.Commit();            // "COMMIT;"
 ```
 
 ---

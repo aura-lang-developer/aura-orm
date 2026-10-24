@@ -10,7 +10,14 @@ import {
   StringColumn,
   TextColumn,
   BoolColumn,
-  TimestampColumn
+  TimestampColumn,
+  JsonColumn,
+  UuidColumn,
+  FloatColumn,
+  BlobColumn,
+  AddColumnSql,
+  DropColumnSql,
+  RenameColumnSql
 } from "../src/schema/schema";
 
 export fn main(): Unit => {
@@ -98,6 +105,70 @@ export fn main(): Unit => {
     passed += 1;
   } else {
     println(`  ✕ FAIL: Expected '${expectedItemsDdl}'\n       Got: '${itemsDdl}'`);
+    failed += 1;
+  };
+
+  // ----------------------------------------------------------------------------
+  // TEST 5: Table Indexes (CREATE INDEX / CREATE UNIQUE INDEX)
+  // ----------------------------------------------------------------------------
+  println("\n[TEST 5] Indexes generation:");
+  let indexedTable = pg.DefineTable("accounts")
+    .AddColumn(IntegerColumn("id").PrimaryKey())
+    .AddColumn(StringColumn("email", 120))
+    .AddColumn(StringColumn("tenant_id", 64))
+    .AddIndex("idx_accounts_email", ["email"], true)
+    .AddIndex("idx_accounts_tenant_email", ["tenant_id", "email"], false);
+
+  let indexStatements = indexedTable.ToCreateIndexSql(pg.dialect);
+  let expectedIdx1 = "CREATE UNIQUE INDEX IF NOT EXISTS \"idx_accounts_email\" ON \"accounts\" (\"email\");";
+  let expectedIdx2 = "CREATE INDEX IF NOT EXISTS \"idx_accounts_tenant_email\" ON \"accounts\" (\"tenant_id\", \"email\");";
+
+  if len(indexStatements) == 2 && indexStatements[0] == expectedIdx1 && indexStatements[1] == expectedIdx2 {
+    println("  ✓ PASS: Correct CREATE INDEX and CREATE UNIQUE INDEX generated");
+    passed += 1;
+  } else {
+    println("  ✕ FAIL: Index DDL mismatch");
+    failed += 1;
+  };
+
+  // ----------------------------------------------------------------------------
+  // TEST 6: Modern Column Types (UUID, JSON, FLOAT, BLOB)
+  // ----------------------------------------------------------------------------
+  println("\n[TEST 6] Modern Column Types (PostgreSQL vs SQLite):");
+  let docsTablePg = pg.DefineTable("documents")
+    .AddColumn(UuidColumn("doc_id").PrimaryKey())
+    .AddColumn(JsonColumn("metadata"))
+    .AddColumn(FloatColumn("rating"))
+    .AddColumn(BlobColumn("payload"));
+
+  let pgDocDdl = docsTablePg.ToCreateTableSql(pg.dialect);
+  let expectedPgDoc = "CREATE TABLE IF NOT EXISTS \"documents\" (\"doc_id\" UUID PRIMARY KEY, \"metadata\" JSONB NOT NULL, \"rating\" FLOAT NOT NULL, \"payload\" BYTEA NOT NULL);";
+
+  if pgDocDdl == expectedPgDoc {
+    println("  ✓ PASS: Correct modern types (UUID, JSONB, FLOAT, BYTEA) for PostgreSQL");
+    passed += 1;
+  } else {
+    println(`  ✕ FAIL: Expected '${expectedPgDoc}'\n       Got: '${pgDocDdl}'`);
+    failed += 1;
+  };
+
+  // ----------------------------------------------------------------------------
+  // TEST 7: ALTER TABLE DDL (ADD, DROP, RENAME Column)
+  // ----------------------------------------------------------------------------
+  println("\n[TEST 7] ALTER TABLE DDL statements:");
+  let addColSql = AddColumnSql("users", StringColumn("nickname", 50).Nullable(), pg.dialect);
+  let dropColSql = DropColumnSql("users", "old_col", pg.dialect);
+  let renameColSql = RenameColumnSql("users", "name", "full_name", pg.dialect);
+
+  let expectedAdd = "ALTER TABLE \"users\" ADD COLUMN \"nickname\" VARCHAR(50);";
+  let expectedDropCol = "ALTER TABLE \"users\" DROP COLUMN \"old_col\";";
+  let expectedRename = "ALTER TABLE \"users\" RENAME COLUMN \"name\" TO \"full_name\";";
+
+  if addColSql == expectedAdd && dropColSql == expectedDropCol && renameColSql == expectedRename {
+    println("  ✓ PASS: ALTER TABLE ADD, DROP and RENAME COLUMN verified");
+    passed += 1;
+  } else {
+    println("  ✕ FAIL: ALTER TABLE statements mismatch");
     failed += 1;
   };
 

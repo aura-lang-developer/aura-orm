@@ -131,6 +131,70 @@ export fn TimestampColumn(name: String): ColumnDef => {
   }
 };
 
+export fn JsonColumn(name: String): ColumnDef => {
+  {
+    __aura_type: "ColumnDef",
+    name: name,
+    dataType: "JSON",
+    length: 0,
+    isPrimary: false,
+    isNullable: false,
+    isUnique: false,
+    defaultValue: "",
+    refTable: "",
+    refColumn: "",
+    onDeleteAction: ""
+  }
+};
+
+export fn UuidColumn(name: String): ColumnDef => {
+  {
+    __aura_type: "ColumnDef",
+    name: name,
+    dataType: "UUID",
+    length: 0,
+    isPrimary: false,
+    isNullable: false,
+    isUnique: false,
+    defaultValue: "",
+    refTable: "",
+    refColumn: "",
+    onDeleteAction: ""
+  }
+};
+
+export fn FloatColumn(name: String): ColumnDef => {
+  {
+    __aura_type: "ColumnDef",
+    name: name,
+    dataType: "FLOAT",
+    length: 0,
+    isPrimary: false,
+    isNullable: false,
+    isUnique: false,
+    defaultValue: "",
+    refTable: "",
+    refColumn: "",
+    onDeleteAction: ""
+  }
+};
+
+export fn BlobColumn(name: String): ColumnDef => {
+  {
+    __aura_type: "ColumnDef",
+    name: name,
+    dataType: "BLOB",
+    length: 0,
+    isPrimary: false,
+    isNullable: false,
+    isUnique: false,
+    defaultValue: "",
+    refTable: "",
+    refColumn: "",
+    onDeleteAction: ""
+  }
+};
+
 export fn (col: ColumnDef) PrimaryKey(): ColumnDef => {
   {
     __aura_type: "ColumnDef",
@@ -228,21 +292,40 @@ export fn (col: ColumnDef) OnDelete(action: String): ColumnDef => {
 };
 
 // ==============================================================================
-// Table Schema
+// Table Schema & Indexes
 // ==============================================================================
+
+export struct IndexDef {
+  __aura_type: String,
+  name: String,
+  columns: []String,
+  isUnique: Bool
+};
+
+export fn NewIndex(name: String, columns: []String, isUnique: Bool): IndexDef => {
+  {
+    __aura_type: "IndexDef",
+    name: name,
+    columns: columns,
+    isUnique: isUnique
+  }
+};
 
 export struct TableSchema {
   __aura_type: String,
   name: String,
-  columns: []ColumnDef
+  columns: []ColumnDef,
+  indexes: []IndexDef
 };
 
 export fn NewTable(name: String): TableSchema => {
   let emptyCols: []ColumnDef = [];
+  let emptyIndexes: []IndexDef = [];
   {
     __aura_type: "TableSchema",
     name: name,
-    columns: emptyCols
+    columns: emptyCols,
+    indexes: emptyIndexes
   }
 };
 
@@ -252,7 +335,19 @@ export fn (t: TableSchema) AddColumn(col: ColumnDef): TableSchema => {
   {
     __aura_type: "TableSchema",
     name: t.name,
-    columns: newCols
+    columns: newCols,
+    indexes: t.indexes
+  }
+};
+
+export fn (t: TableSchema) AddIndex(name: String, columns: []String, isUnique: Bool): TableSchema => {
+  let mut newIndexes = t.indexes;
+  newIndexes.push(NewIndex(name, columns, isUnique));
+  {
+    __aura_type: "TableSchema",
+    name: t.name,
+    columns: t.columns,
+    indexes: newIndexes
   }
 };
 
@@ -264,6 +359,18 @@ fn formatColumnDdl(col: ColumnDef, dialect: Dialect): String => {
   if col.dataType == "VARCHAR" {
     let l = if col.length > 0 { col.length } else { 255 };
     typeStr = `VARCHAR(${l})`;
+  };
+
+  if col.dataType == "JSON" && dialect.name == "postgres" {
+    typeStr = "JSONB";
+  };
+
+  if col.dataType == "UUID" && dialect.name != "postgres" {
+    typeStr = "VARCHAR(36)";
+  };
+
+  if col.dataType == "BLOB" && dialect.name == "postgres" {
+    typeStr = "BYTEA";
   };
 
   if col.isPrimary && dialect.name == "postgres" && col.dataType == "INTEGER" {
@@ -326,7 +433,59 @@ export fn (t: TableSchema) ToCreateTableSql(dialect: Dialect): String => {
   `CREATE TABLE IF NOT EXISTS ${qTable} (${inner});`
 };
 
+export fn (t: TableSchema) ToCreateIndexSql(dialect: Dialect): []String => {
+  let mut indexStatements: []String = [];
+  let qTable = QuoteIdentifier(dialect, t.name);
+
+  for idx in t.indexes {
+    let mut qCols: []String = [];
+    for c in idx.columns {
+      qCols.push(QuoteIdentifier(dialect, c));
+    }
+    let colsPart = if len(qCols) == 0 {
+      ""
+    } else {
+      let mut res = qCols[0];
+      let mut i = 1;
+      while i < len(qCols) {
+        res = `${res}, ${qCols[i]}`;
+        i = i + 1;
+      }
+      res
+    };
+
+    let qIdx = QuoteIdentifier(dialect, idx.name);
+    let u = if idx.isUnique { "UNIQUE " } else { "" };
+    indexStatements.push(`CREATE ${u}INDEX IF NOT EXISTS ${qIdx} ON ${qTable} (${colsPart});`);
+  }
+
+  indexStatements
+};
+
 export fn (t: TableSchema) ToDropTableSql(dialect: Dialect): String => {
   let qTable = QuoteIdentifier(dialect, t.name);
   `DROP TABLE IF EXISTS ${qTable};`
+};
+
+// ==============================================================================
+// ALTER TABLE Helpers
+// ==============================================================================
+
+export fn AddColumnSql(tableName: String, col: ColumnDef, dialect: Dialect): String => {
+  let qTable = QuoteIdentifier(dialect, tableName);
+  let colSql = formatColumnDdl(col, dialect);
+  `ALTER TABLE ${qTable} ADD COLUMN ${colSql};`
+};
+
+export fn DropColumnSql(tableName: String, columnName: String, dialect: Dialect): String => {
+  let qTable = QuoteIdentifier(dialect, tableName);
+  let qCol = QuoteIdentifier(dialect, columnName);
+  `ALTER TABLE ${qTable} DROP COLUMN ${qCol};`
+};
+
+export fn RenameColumnSql(tableName: String, oldName: String, newName: String, dialect: Dialect): String => {
+  let qTable = QuoteIdentifier(dialect, tableName);
+  let qOld = QuoteIdentifier(dialect, oldName);
+  let qNew = QuoteIdentifier(dialect, newName);
+  `ALTER TABLE ${qTable} RENAME COLUMN ${qOld} TO ${qNew};`
 };

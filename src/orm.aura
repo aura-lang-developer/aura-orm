@@ -26,16 +26,30 @@ import {
 
 import {
   ColumnDef,
+  IndexDef,
   TableSchema,
   NewTable,
+  NewIndex,
   IntegerColumn,
   BigIntColumn,
   StringColumn,
   TextColumn,
   BoolColumn,
   NumericColumn,
-  TimestampColumn
+  TimestampColumn,
+  JsonColumn,
+  UuidColumn,
+  FloatColumn,
+  BlobColumn,
+  AddColumnSql,
+  DropColumnSql,
+  RenameColumnSql
 } from "./schema/schema";
+
+import {
+  TransactionBuilder,
+  NewTransactionBuilder
+} from "./tx/tx";
 
 export struct AuraOrm {
   __aura_type: String,
@@ -81,4 +95,8 @@ export fn (orm: AuraOrm) DeleteFrom(table: String): DeleteBuilder => {
 
 export fn (orm: AuraOrm) DefineTable(name: String): TableSchema => {
   NewTable(name)
+};
+
+export fn (orm: AuraOrm) Transaction(): TransactionBuilder => {
+  NewTransactionBuilder(orm.dialect)
 };

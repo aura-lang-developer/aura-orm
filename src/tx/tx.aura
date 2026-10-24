@@ -1,0 +1,42 @@
+// ==============================================================================
+// Aura ORM - Transactions Module
+// src/tx/tx.aura - Transaction management and SQL statement generators
+// ==============================================================================
+
+import { Dialect } from "../dialect/dialect";
+
+export struct TransactionBuilder {
+  __aura_type: String,
+  dialect: Dialect
+};
+
+export fn NewTransactionBuilder(dialect: Dialect): TransactionBuilder => {
+  {
+    __aura_type: "TransactionBuilder",
+    dialect: dialect
+  }
+};
+
+export fn (tx: TransactionBuilder) Begin(): String => {
+  if tx.dialect.name == "mysql" {
+    "START TRANSACTION;"
+  } else {
+    "BEGIN;"
+  }
+};
+
+export fn (tx: TransactionBuilder) Commit(): String => {
+  "COMMIT;"
+};
+
+export fn (tx: TransactionBuilder) Rollback(): String => {
+  "ROLLBACK;"
+};
+
+export fn (tx: TransactionBuilder) Savepoint(name: String): String => {
+  `SAVEPOINT ${name};`
+};
+
+export fn (tx: TransactionBuilder) RollbackToSavepoint(name: String): String => {
+  `ROLLBACK TO SAVEPOINT ${name};`
+};

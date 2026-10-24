@@ -178,6 +178,113 @@ export fn main(): Unit => {
   };
 
   // ----------------------------------------------------------------------------
+  // TEST 9: Batch / Bulk Insert (PostgreSQL)
+  // ----------------------------------------------------------------------------
+  println("\n[TEST 9] Batch Insert with multiple rows:");
+  let q9 = pg.InsertInto("metrics")
+    .BatchInsert(["key", "val"], [["cpu", "80"], ["mem", "65"], ["disk", "40"]])
+    .ToSql();
+
+  let expectedSql9 = "INSERT INTO metrics (key, val) VALUES ($1, $2), ($3, $4), ($5, $6);";
+  if q9.sql == expectedSql9 && len(q9.params) == 6 && q9.params[0] == "cpu" && q9.params[5] == "40" {
+    println("  ✓ PASS: Correct multi-row batch insert with numbered placeholders");
+    passed += 1;
+  } else {
+    println(`  ✕ FAIL: Expected '${expectedSql9}' but got '${q9.sql}'`);
+    failed += 1;
+  };
+
+  // ----------------------------------------------------------------------------
+  // TEST 10: Advanced WHERE (WhereIn, WhereBetween, WhereILike, OrWhere)
+  // ----------------------------------------------------------------------------
+  println("\n[TEST 10] Advanced WHERE clauses (IN, BETWEEN, ILIKE, OR):");
+  let q10 = pg.SelectFrom("employees")
+    .WhereIn("role", ["admin", "dev"])
+    .WhereBetween("salary", "30000", "80000")
+    .WhereILike("name", "alex%")
+    .OrWhere("department", "=", "engineering")
+    .ToSql();
+
+  let expectedSql10 = "SELECT * FROM employees WHERE role IN ($1, $2) AND salary BETWEEN ($3) AND ($4) AND name ILIKE $5 OR department = $6;";
+  // Note: let's verify exact format from WhereBetween: `${column} BETWEEN ${phLow} AND ${phHigh}`
+  let expectedSql10Real = "SELECT * FROM employees WHERE role IN ($1, $2) AND salary BETWEEN $3 AND $4 AND name ILIKE $5 OR department = $6;";
+  if q10.sql == expectedSql10Real && len(q10.params) == 6 && q10.params[0] == "admin" && q10.params[4] == "alex%" {
+    println("  ✓ PASS: Correct IN, BETWEEN, ILIKE and OR clauses");
+    passed += 1;
+  } else {
+    println(`  ✕ FAIL: Expected '${expectedSql10Real}' but got '${q10.sql}'`);
+    failed += 1;
+  };
+
+  // ----------------------------------------------------------------------------
+  // TEST 11: Aggregation functions & HAVING clause
+  // ----------------------------------------------------------------------------
+  println("\n[TEST 11] Aggregations and HAVING clause:");
+  let q11 = pg.SelectFrom("orders")
+    .Select("customer_id")
+    .Count("id", "total_orders")
+    .Sum("total_price", "total_spent")
+    .GroupBy("customer_id")
+    .Having("COUNT(id) > 5")
+    .ToSql();
+
+  let expectedSql11 = "SELECT customer_id, COUNT(id) AS total_orders, SUM(total_price) AS total_spent FROM orders GROUP BY customer_id HAVING COUNT(id) > 5;";
+  if q11.sql == expectedSql11 {
+    println("  ✓ PASS: Correct aggregation functions and HAVING clause");
+    passed += 1;
+  } else {
+    println(`  ✕ FAIL: Expected '${expectedSql11}' but got '${q11.sql}'`);
+    failed += 1;
+  };
+
+  // ----------------------------------------------------------------------------
+  // TEST 12: UPDATE with SetRaw, RETURNING, and DELETE with RETURNING
+  // ----------------------------------------------------------------------------
+  println("\n[TEST 12] UPDATE SetRaw & RETURNING and DELETE RETURNING:");
+  let q12 = pg.UpdateTable("counters")
+    .SetRaw("views", "views + 1")
+    .Set("last_accessed", "2026-10-23")
+    .Where("id", "=", "10")
+    .Returning("views")
+    .ToSql();
+
+  let expectedSql12 = "UPDATE counters SET views = views + 1, last_accessed = $1 WHERE id = $2 RETURNING views;";
+  let q12Del = pg.DeleteFrom("archived_items")
+    .Where("expired", "=", "true")
+    .Returning("id")
+    .ToSql();
+  let expectedDelSql = "DELETE FROM archived_items WHERE expired = $1 RETURNING id;";
+
+  if q12.sql == expectedSql12 && len(q12.params) == 2 && q12.params[0] == "2026-10-23" && q12Del.sql == expectedDelSql {
+    println("  ✓ PASS: UPDATE SetRaw, UPDATE RETURNING, and DELETE RETURNING verified");
+    passed += 1;
+  } else {
+    println(`  ✕ FAIL:\n       UPDATE: '${q12.sql}' vs '${expectedSql12}'\n       DELETE: '${q12Del.sql}' vs '${expectedDelSql}'`);
+    failed += 1;
+  };
+
+  // ----------------------------------------------------------------------------
+  // TEST 13: Transactions Builder
+  // ----------------------------------------------------------------------------
+  println("\n[TEST 13] Transaction statements generation:");
+  let pgTx = pg.Transaction();
+  let myTx = my.Transaction();
+
+  let pgBegin = pgTx.Begin();
+  let myBegin = myTx.Begin();
+  let savepoint = pgTx.Savepoint("sp1");
+  let rbSp = pgTx.RollbackToSavepoint("sp1");
+  let commit = pgTx.Commit();
+
+  if pgBegin == "BEGIN;" && myBegin == "START TRANSACTION;" && savepoint == "SAVEPOINT sp1;" && rbSp == "ROLLBACK TO SAVEPOINT sp1;" && commit == "COMMIT;" {
+    println("  ✓ PASS: Dialect-aware Transaction commands verified");
+    passed += 1;
+  } else {
+    println("  ✕ FAIL: Transaction statements mismatch");
+    failed += 1;
+  };
+
+  // ----------------------------------------------------------------------------
   // RESULTS SUMMARY
   // ----------------------------------------------------------------------------
   println("================================================================================");
