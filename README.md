@@ -1,56 +1,72 @@
 # ⚡ Aura ORM (`aura-orm`)
 
-Librería de **Mapeo Objeto-Relacional (ORM)**, **Query Builder Fluido** y **Gestor de Esquemas DDL** escrita de forma nativa para el lenguaje de programación **Aura** (`aurac`).
+A native **Object-Relational Mapping (ORM)**, **Fluent Query Builder**, and **DDL Schema Management** library built for the **Aura** programming language (`aurac`).
 
 ---
 
-## 🚀 Características
+## 🚀 Features
 
-- **Query Builder Fluido Multi-Dialecto**: Construcción programática y segura de sentencias `SELECT`, `INSERT`, `UPDATE` y `DELETE`.
-- **Dialectos SQL Nativos**:
-  - **PostgreSQL**: Placeholders numerados (`$1, $2, ...`), cláusulas `RETURNING`, `SERIAL PRIMARY KEY` y entrecomillado `"identificador"`.
-  - **MySQL**: Placeholders de interrogación (`?`) y delimitador de backtick `` `identificador` ``.
-  - **SQLite**: Placeholders (`?`), `INTEGER PRIMARY KEY AUTOINCREMENT` y tipos ligeros.
-- **Definición de Esquemas y DDL**: Definición declarativa de tablas, tipos de columnas (`INTEGER`, `BIGINT`, `VARCHAR`, `TEXT`, `BOOLEAN`, `NUMERIC`, `TIMESTAMP`), restricciones (`PRIMARY KEY`, `NOT NULL`, `UNIQUE`) y valores `DEFAULT`.
-- **Despacho Seguro de Métodos**: Integración con el modelo Go/Aura mediante receptor tipado y etiqueta interna `__aura_type`.
-- **100% Nativo en Aura**: Sin dependencias externas runtime pesadas.
+- **Multi-Dialect Fluent Query Builder**: Programmatic and parameterized construction of `SELECT`, `INSERT`, `UPDATE`, and `DELETE` statements.
+- **Native SQL Dialects**:
+  - **PostgreSQL**: Numbered placeholders (`$1, $2, ...`), `RETURNING` clauses, `SERIAL PRIMARY KEY`, and quoted identifiers (`"table"`).
+  - **MySQL**: Standard placeholders (`?`), backtick escaping (`` `table` ``), and `AUTO_INCREMENT`.
+  - **SQLite**: Positional placeholders (`?`), `INTEGER PRIMARY KEY AUTOINCREMENT`, and lightweight typing.
+- **Relational Table Joins**: Support for `INNER JOIN`, `LEFT JOIN`, `RIGHT JOIN`, and `FULL OUTER JOIN`.
+- **Schema & DDL Definition**: Declarative table definitions, column types (`INTEGER`, `BIGINT`, `VARCHAR`, `TEXT`, `BOOLEAN`, `NUMERIC`, `TIMESTAMP`, `JSON`, `UUID`, `FLOAT`, `BLOB`), constraints (`PRIMARY KEY`, `NOT NULL`, `UNIQUE`), and `DEFAULT` values.
+- **Migrations & Alterations**: DDL helpers for `ALTER TABLE ADD COLUMN`, `DROP COLUMN`, `RENAME COLUMN`, and index creation.
+- **Transaction SQL Manager**: Clean management of `BEGIN`, `SAVEPOINT`, `ROLLBACK TO SAVEPOINT`, and `COMMIT`.
+- **Safe Method Dispatch**: Built on Aura's receiver model with typed structs and internal `__aura_type` dispatching.
+- **100% Native Aura**: Pure Aura code with zero heavy external runtime dependencies.
 
 ---
 
-## 📁 Estructura del Proyecto
+## 📁 Project Structure
 
 ```text
 aura-orm/
-├── aura.mod                  # Manifiesto de módulo Aura (v0.5.0)
-├── Makefile                  # Comandos make (test, check, fmt, clean)
-├── README.md                 # Documentación técnica
+├── aura.mod                  # Aura module manifest (v0.5.0)
+├── Makefile                  # Build, test, and check targets
+├── README.md                 # English documentation
+├── README_es.md              # Spanish documentation
 ├── src/
 │   ├── dialect/
-│   │   └── dialect.aura      # Abstracciones de dialectos (PostgreSQL, MySQL, SQLite)
+│   │   └── dialect.aura      # Dialect abstractions (PostgreSQL, MySQL, SQLite)
 │   ├── builder/
-│   │   └── query.aura        # Query Builder para SELECT, INSERT, UPDATE, DELETE
+│   │   └── query.aura        # Query Builder for SELECT, INSERT, UPDATE, DELETE & Joins
 │   ├── schema/
-│   │   └── schema.aura       # Definición de columnas, tablas y generador DDL
-│   └── orm.aura              # Fachada unificada de alto nivel
+│   │   └── schema.aura       # Column definitions, table schema, and DDL generator
+│   └── orm.aura              # Unified high-level ORM facade
+├── examples/                 # Comprehensive runnable example scripts
+│   ├── 01_select_queries.aura
+│   ├── 02_advanced_filters.aura
+│   ├── 03_aggregations_and_having.aura
+│   ├── 04_insert_and_batch.aura
+│   ├── 05_update_and_delete.aura
+│   ├── 06_schema_indexes_migrations.aura
+│   ├── 07_transactions.aura
+│   ├── 08_joins.aura
+│   └── README.md
 └── tests/
-    ├── builder_test.aura     # Pruebas de generación y parametrización de consultas
-    └── schema_test.aura      # Pruebas de DDL y generación de esquemas
+    ├── builder_test.aura     # Unit tests for query construction & parameterization
+    └── schema_test.aura      # Unit tests for DDL and schema generation
 ```
 
 ---
 
-## 🛠️ Guía de Uso
+## 🛠️ Usage Guide
 
-### 1. Inicialización del ORM
+### 1. Initializing the ORM
 
 ```aura
 import { PostgresOrm, MysqlOrm, SqliteOrm } from "./src/orm";
 
-// Instanciar para el motor de tu preferencia:
+// Instantiate for your target database:
 let orm = PostgresOrm();
 ```
 
-### 2. Consultas `SELECT` con Paginación y Filtros
+---
+
+### 2. `SELECT` Queries with Filters and Pagination
 
 ```aura
 let query = orm.SelectFrom("users")
@@ -69,7 +85,30 @@ println(query.sql);
 // query.params => ["active", "18"]
 ```
 
-### 3. Inserciones `INSERT INTO` con `RETURNING` (PostgreSQL)
+---
+
+### 3. Relational Table Joins (`INNER`, `LEFT`, `RIGHT`, `FULL`)
+
+```aura
+let joinQuery = orm.SelectFrom("users")
+  .Select("users.id")
+  .Select("users.email")
+  .Select("profiles.bio")
+  .InnerJoin("profiles", "users.id = profiles.user_id")
+  .LeftJoin("orders", "users.id = orders.user_id")
+  .Where("users.status", "=", "active")
+  .ToSql();
+
+println(joinQuery.sql);
+// SELECT users.id, users.email, profiles.bio FROM users
+//   INNER JOIN profiles ON users.id = profiles.user_id
+//   LEFT JOIN orders ON users.id = orders.user_id
+//   WHERE users.status = $1;
+```
+
+---
+
+### 4. `INSERT INTO` with `RETURNING` (PostgreSQL)
 
 ```aura
 let insert = orm.InsertInto("users")
@@ -85,7 +124,9 @@ println(insert.sql);
 // insert.params => ["Alice", "alice@example.com", "true"]
 ```
 
-### 4. Actualizaciones `UPDATE` y Eliminaciones `DELETE`
+---
+
+### 5. `UPDATE` and `DELETE` Queries
 
 ```aura
 // UPDATE
@@ -103,16 +144,22 @@ let delete = orm.DeleteFrom("sessions")
   .ToSql();
 ```
 
-### 5. Inserciones por Lote (Batch Insert)
+---
+
+### 6. Batch Inserts
 
 ```aura
 let batchInsert = orm.InsertInto("metrics")
   .BatchInsert(["key", "val"], [["cpu", "80"], ["mem", "65"]])
   .ToSql();
+
+println(batchInsert.sql);
 // INSERT INTO metrics (key, val) VALUES ($1, $2), ($3, $4);
 ```
 
-### 6. Filtros Avanzados, Agregaciones y Cláusula HAVING
+---
+
+### 7. Advanced Filters, Aggregations, and `HAVING`
 
 ```aura
 let report = orm.SelectFrom("employees")
@@ -128,7 +175,9 @@ let report = orm.SelectFrom("employees")
   .ToSql();
 ```
 
-### 7. Definición de Esquemas, Índices y Migraciones DDL
+---
+
+### 8. Schema Definitions, Indexes, and DDL Migrations
 
 ```aura
 import {
@@ -156,34 +205,57 @@ let usersTable = orm.DefineTable("users")
   .AddColumn(TimestampColumn("created_at"))
   .AddIndex("idx_users_email", ["email"], true);
 
-// Generar DDL de creación de tabla e índices:
+// Generate table creation and index DDL:
 let ddlSql = usersTable.ToCreateTableSql(orm.dialect);
 let indexesSql = usersTable.ToCreateIndexSql(orm.dialect);
 
-// Alteraciones de columnas (ADD / DROP / RENAME):
+// Schema alterations (ADD / DROP / RENAME):
 let alterSql = AddColumnSql("users", StringColumn("phone", 30).Nullable(), orm.dialect);
-```
-
-### 8. Gestor de Transacciones SQL
-
-```aura
-let tx = orm.Transaction();
-let beginSql = tx.Begin();              // "BEGIN;" o "START TRANSACTION;"
-let spSql = tx.Savepoint("sp1");        // "SAVEPOINT sp1;"
-let rbSp = tx.RollbackToSavepoint("sp1");// "ROLLBACK TO SAVEPOINT sp1;"
-let commitSql = tx.Commit();            // "COMMIT;"
 ```
 
 ---
 
-## 🧪 Pruebas Automatizadas
+### 9. SQL Transaction Manager
 
-Para verificar tipos y ejecutar toda la suite de pruebas unitarias:
+```aura
+let tx = orm.Transaction();
+let beginSql = tx.Begin();               // "BEGIN;" or "START TRANSACTION;"
+let spSql = tx.Savepoint("sp1");         // "SAVEPOINT sp1;"
+let rbSp = tx.RollbackToSavepoint("sp1"); // "ROLLBACK TO SAVEPOINT sp1;"
+let commitSql = tx.Commit();             // "COMMIT;"
+```
+
+---
+
+## 🧪 Testing
+
+To check semantic types and run the automated test suite:
 
 ```bash
-# Validar sintaxis y análisis semántico de tipos
+# Validate syntax and semantic type analysis
 make check
 
-# Ejecutar pruebas del query builder y esquemas
+# Run query builder and schema test suites
 make test
 ```
+
+---
+
+## 📚 Examples
+
+The repository includes ready-to-run examples in the [`examples/`](file:///Users/mavro/Projects/AuraProjects/aura-orm/examples/) directory:
+
+- [`01_select_queries.aura`](file:///Users/mavro/Projects/AuraProjects/aura-orm/examples/01_select_queries.aura): Basic and complex `SELECT` queries.
+- [`02_advanced_filters.aura`](file:///Users/mavro/Projects/AuraProjects/aura-orm/examples/02_advanced_filters.aura): `IN`, `NOT IN`, `BETWEEN`, `LIKE`, `ILIKE`, and `IS NULL`.
+- [`03_aggregations_and_having.aura`](file:///Users/mavro/Projects/AuraProjects/aura-orm/examples/03_aggregations_and_having.aura): Aggregations (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`) and `GROUP BY / HAVING`.
+- [`04_insert_and_batch.aura`](file:///Users/mavro/Projects/AuraProjects/aura-orm/examples/04_insert_and_batch.aura): Single and batch inserts with `RETURNING`.
+- [`05_update_and_delete.aura`](file:///Users/mavro/Projects/AuraProjects/aura-orm/examples/05_update_and_delete.aura): Updates and deletes with raw SQL expressions.
+- [`06_schema_indexes_migrations.aura`](file:///Users/mavro/Projects/AuraProjects/aura-orm/examples/06_schema_indexes_migrations.aura): DDL creation and migrations.
+- [`07_transactions.aura`](file:///Users/mavro/Projects/AuraProjects/aura-orm/examples/07_transactions.aura): Transactions and savepoints.
+- [`08_joins.aura`](file:///Users/mavro/Projects/AuraProjects/aura-orm/examples/08_joins.aura): Relational joins across tables.
+
+---
+
+## 📄 License
+
+Licensed under the MIT License. See [LICENSE](LICENSE) for details.
